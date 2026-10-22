@@ -1,0 +1,89 @@
+Set up project folder
+- Activated conda environment: conda activate GITHUB
+- Created folders: mkdir -p copilot_practical/{input,tmp,results,scripts}
+- Created this log file: touch copilot_practical/WHATIDID.txt
+
+Install Ollama and download a model
+- Installed Ollama: conda install -c conda-forge ollama -y
+- Checked it installed: ollama --version, ollama --help
+- Checked disk space before downloading: df -h ~ (24G available)
+- Downloaded the model: ollama pull qwen2.5-coder:7b (4.7 GB)
+- Confirmed download: ollama list
+
+Ask the model to write a translate function
+- Ran: ollama run qwen2.5-coder:7b
+- Prompt: "Write a Python function translate(seq) that translates a nucleic acid
+  sequence into a protein sequence using the standard codon table."
+
+Review of the generated code
+- Codon table is correct: all 64 codons present, including ATG = M and the
+  three stop codons (TAA, TAG, TGA).
+- Translation stops at the first stop codon and ignores an incomplete codon
+  at the end.
+- The model's example output was WRONG. It claimed "ATGCGAATGTAGCATGTAA"
+  gives "MGA", but working it out by hand (ATG CGA ATG TAG) gives "MRM".
+- Limitation: only works for DNA. RNA sequences containing U are not in the
+  table, so it returns an empty string with no error, even though the prompt
+  asked for "nucleic acid".
+- Limitation: invalid characters (e.g. N) stop translation silently instead
+  of giving an error.
+- One comment in the model's output was wrapped across two lines in the
+  terminal, which would cause a SyntaxError if pasted as-is. I fixed it.
+
+Save and test the function
+- Saved the function to scripts/translate_dna.py
+- Test 1: ATGAAATGGTAA (ATG=M, AAA=K, TGG=W, TAA=stop)
+  Expected: MKW   Got: [...]
+- Test 2 (model's own example): ATGCGAATGTAGCATGTAA
+  Expected: MRM   Got: [...]
+- Test 3 (my own sequence): [...]
+  Expected: [...]   Got: [...]
+
+Conclusion
+- The function itself works correctly for DNA, but the model's explanation
+  contained a wrong example output. AI-generated code has to be checked by
+  hand rather than trusted.
+
+
+
+Tokens experiment (ollama run qwen2.5-coder:7b --verbose)
+
+What the --verbose statistics mean
+- total duration:       total time from sending the prompt to the reply
+                        finishing (includes loading, reading and generating)
+- load duration:        time taken to load the model into memory (tiny here
+                        because it was already loaded)
+- prompt eval count:    number of tokens the model READ, i.e. my prompt plus
+                        any earlier messages in the same chat
+- prompt eval duration: time taken to read/process those input tokens
+- prompt eval rate:     input tokens processed per second
+- eval count:           number of tokens the model GENERATED (its reply)
+- eval duration:        time taken to generate the reply
+- eval rate:            output tokens generated per second (generation speed)
+- Token: a chunk of text the model works with. It is not the same as a word;
+  a word can be one or several tokens.
+
+Results
+- Short prompt "What is a codon":
+  prompt eval 36 tokens, eval 73 tokens, eval rate 9.8 tok/s, total 8 s
+- Long prompt (genetic code / reading frames / improvements):
+  prompt eval 887 tokens, eval 645 tokens, eval rate 9.1 tok/s, total 76 s
+
+Observations
+- Generation speed roughly constant (~9-10 tok/s on CPU); total time is
+  mostly generation, so longer answers take proportionally longer.
+- Prompt eval count (887) was larger than the long prompt itself because
+  the earlier chat history is re-read as context every turn.
+- Prompt reading is much faster than generation (186 vs 9 tok/s).
+
+Accuracy issues spotted
+- Claimed the genetic code is universal (wrong: mitochondrial/variant codes).
+- Did not explain 4^3 = 64 properly, or why there are 6 reading frames.
+- Mitochondrial answer vague, no actual codon differences given.
+- Suggested "incorporating the wobble hypothesis" into the function, which
+  is irrelevant: the codon table already handles synonymous codons.
+- Longer prompts gave longer but not more accurate answers.
+
+- Launched copilot (v1.0.102); trusted folder; already signed in
+- Linked to repo syed-m0185/AI_For_Programming (remote index queued)
+- No copilot-instructions.md yet; 1 MCP server (GitHub) connected
